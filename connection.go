@@ -46,7 +46,7 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 	port := hostAddress.Port
 	newAdd := net.JoinHostPort(ip, strconv.Itoa(port))
 	cn.timeout = timeout
-	bufferSize := 128 << 10
+	// bufferSize := 128 << 10
 	frameMaxLength := uint32(math.MaxUint32)
 
 	var err error
@@ -61,8 +61,9 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 	}
 
 	// Set transport buffer
-	bufferedTranFactory := thrift.NewBufferedTransportFactory(bufferSize)
-	transport := thrift.NewFramedTransportMaxLength(bufferedTranFactory.GetTransport(sock), frameMaxLength)
+	// bufferedTranFactory := thrift.NewBufferedTransportFactory(bufferSize)
+	httpTranFactory := thrift.NewHTTPPostClientTransportFactory("http://" + newAdd)
+	transport := thrift.NewFramedTransportMaxLength(httpTranFactory.GetTransport(sock), frameMaxLength)
 	pf := thrift.NewBinaryProtocolFactoryDefault()
 	cn.graph = graph.NewGraphServiceClientFactory(transport, pf)
 	if err = cn.graph.Open(); err != nil {

@@ -20,7 +20,7 @@ const (
 	address = "127.0.0.1"
 	// The default port of NebulaGraph 2.x is 9669.
 	// 3699 is only for testing.
-	port     = 3699
+	port     = 9798
 	username = "root"
 	password = "nebula"
 )
