@@ -11,14 +11,15 @@ package nebula_go
 import (
 	"crypto/tls"
 	"fmt"
-	"math"
 	"net"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/facebook/fbthrift/thrift/lib/go/thrift"
 	"github.com/vesoft-inc/nebula-go/v3/nebula"
 	"github.com/vesoft-inc/nebula-go/v3/nebula/graph"
+	"golang.org/x/net/http2"
 )
 
 type connection struct {
@@ -47,7 +48,7 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 	newAdd := net.JoinHostPort(ip, strconv.Itoa(port))
 	cn.timeout = timeout
 	// bufferSize := 128 << 10
-	frameMaxLength := uint32(math.MaxUint32)
+	// frameMaxLength := uint32(math.MaxUint32)
 
 	var err error
 	var sock thrift.Transport
@@ -62,10 +63,20 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 
 	// Set transport buffer
 	// bufferedTranFactory := thrift.NewBufferedTransportFactory(bufferSize)
-	httpTranFactory := thrift.NewHTTPPostClientTransportFactory("http://" + newAdd)
-	transport := thrift.NewFramedTransportMaxLength(httpTranFactory.GetTransport(sock), frameMaxLength)
+	httpTranFactory := thrift.NewHTTPPostClientTransportFactoryWithOptions("http://"+newAdd, thrift.HTTPClientOptions{
+		Client: &http.Client{
+			Transport: &http2.Transport{
+				// So http2.Transport doesn't complain the URL scheme isn't 'https'
+				AllowHTTP: true,
+				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			},
+		}})
+	// transport := thrift.NewFramedTransportMaxLength(httpTranFactory.GetTransport(sock), frameMaxLength)
 	pf := thrift.NewBinaryProtocolFactoryDefault()
-	cn.graph = graph.NewGraphServiceClientFactory(transport, pf)
+	cn.graph = graph.NewGraphServiceClientFactory(httpTranFactory.GetTransport(sock), pf)
 	if err = cn.graph.Open(); err != nil {
 		return fmt.Errorf("failed to open transport, error: %s", err.Error())
 	}
