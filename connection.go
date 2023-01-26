@@ -51,19 +51,31 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 	// frameMaxLength := uint32(math.MaxUint32)
 
 	var err error
-	var sock thrift.Transport
-	if sslConfig != nil {
-		sock, err = thrift.NewSSLSocketTimeout(newAdd, sslConfig, timeout)
-	} else {
-		sock, err = thrift.NewSocket(thrift.SocketAddr(newAdd), thrift.SocketTimeout(timeout))
-	}
-	if err != nil {
-		return fmt.Errorf("failed to create a net.Conn-backed Transport,: %s", err.Error())
-	}
+	// var sock thrift.Transport
+	// if sslConfig != nil {
+	// 	sock, err = thrift.NewSSLSocketTimeout(newAdd, sslConfig, timeout)
+	// } else {
+	// 	sock, err = thrift.NewSocket(thrift.SocketAddr(newAdd), thrift.SocketTimeout(timeout))
+	// }
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create a net.Conn-backed Transport,: %s", err.Error())
+	// }
 
 	// Set transport buffer
 	// bufferedTranFactory := thrift.NewBufferedTransportFactory(bufferSize)
-	httpTranFactory := thrift.NewHTTPPostClientTransportFactoryWithOptions("http://"+newAdd, thrift.HTTPClientOptions{
+	// httpTranFactory := thrift.NewHTTPPostClientTransportFactoryWithOptions("http://"+newAdd, thrift.HTTPClientOptions{
+	// 	Client: &http.Client{
+	// 		Transport: &http2.Transport{
+	// 			// So http2.Transport doesn't complain the URL scheme isn't 'https'
+	// 			AllowHTTP: true,
+	// 			// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+	// 			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+	// 				return net.Dial(network, addr)
+	// 			},
+	// 		},
+	// 	}})
+
+	clientOpts := thrift.HTTPClientOptions{
 		Client: &http.Client{
 			Transport: &http2.Transport{
 				// So http2.Transport doesn't complain the URL scheme isn't 'https'
@@ -73,10 +85,11 @@ func (cn *connection) open(hostAddress HostAddress, timeout time.Duration, sslCo
 					return net.Dial(network, addr)
 				},
 			},
-		}})
+		}}
+	transport, _ := thrift.NewHTTPPostClientWithOptions("http://"+newAdd, clientOpts)
 	// transport := thrift.NewFramedTransportMaxLength(httpTranFactory.GetTransport(sock), frameMaxLength)
 	pf := thrift.NewBinaryProtocolFactoryDefault()
-	cn.graph = graph.NewGraphServiceClientFactory(httpTranFactory.GetTransport(sock), pf)
+	cn.graph = graph.NewGraphServiceClientFactory(transport, pf)
 	if err = cn.graph.Open(); err != nil {
 		return fmt.Errorf("failed to open transport, error: %s", err.Error())
 	}
